@@ -1,6 +1,6 @@
 # HIPAA-Compliant Mental Health Survey API
 
-A secure, HIPAA-compliant Rails API for collecting and analyzing mental health survey data. This API provides endpoints for submitting survey responses and retrieving analytics while ensuring sensitive health data is properly encrypted and protected.
+A secure, HIPAA-compliant Rails API for collecting and analyzing mental health survey data. This API provides endpoints for submitting survey responses and retrieving analytics while ensuring sensitive health data is properly encrypted and protected. The API is designed to work with a React frontend and can be deployed to Kubernetes.
 
 ## Ruby Version
 
@@ -20,6 +20,8 @@ A secure, HIPAA-compliant Rails API for collecting and analyzing mental health s
 - Comprehensive validation for all survey fields
 - Detailed error handling and logging
 - Complete test suite with RSpec
+- Health check endpoints for Kubernetes probes
+- CORS configuration for secure frontend-backend communication
 
 ## Setup and Configuration
 
@@ -40,6 +42,7 @@ In production, set the following environment variables:
 ```
 LOCKBOX_MASTER_KEY=your_secure_key_here
 BLIND_INDEX_MASTER_KEY=your_secure_key_here
+CORS_ORIGINS=https://your-frontend-domain.com,http://localhost:8080
 ```
 
 ## API Endpoints
@@ -74,6 +77,24 @@ Response:
 }
 ```
 
+### Health Check Endpoints
+
+**GET /health**
+
+Response: `OK`
+
+**GET /healthz**
+
+Response:
+```json
+{
+  "status": "ok",
+  "timestamp": "2025-04-17T15:42:24Z"
+}
+```
+
+These endpoints are used by Kubernetes liveness and readiness probes to determine if the application is healthy.
+
 ## HIPAA Compliance Measures
 
 ### Data Encryption
@@ -96,6 +117,27 @@ Response:
 
 ```bash
 rspec
+```
+
+## Kubernetes Deployment
+
+This application is designed to be deployed to Kubernetes. The deployment configuration is available in the `k8s` directory at the project root.
+
+### Key Deployment Considerations
+
+- The application is configured to bind to `0.0.0.0` to work properly in Kubernetes
+- Health check endpoints are provided for Kubernetes liveness and readiness probes
+- CORS is configured to allow requests from specified origins
+- Database credentials are sourced from Kubernetes secrets
+
+### Deployment Commands
+
+```bash
+# Apply the deployment configuration
+kubectl apply -f k8s/rails-deployment.yaml
+
+# Check the status of the deployment
+kubectl get pods -n tickit-prod
 ```
 
 ## Security Testing
