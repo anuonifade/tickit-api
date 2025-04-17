@@ -1,0 +1,38 @@
+# Git
+.git
+.gitignore
+
+# Rails
+.env
+.env.*
+log/*
+tmp/*
+!/log/.keep
+!/tmp/.keep
+storage/*
+!/storage/.keep
+public/assets
+node_modules
+coverage/
+
+# Docker
+.dockerignore
+Dockerfile
+docker-compose.yml
+
+# Development
+.bundle
+.byebug_history
+.rspec
+spec/
+test/
+
+# Documentation
+README.md
+CHANGELOG.md
+LICENSE
+
+# OS specific
+.DS_Store
+.idea
+.vscode
