@@ -29,17 +29,17 @@ module HipaaComplianceHelper
   end
   # Verify that a model has encrypted fields
   def expect_encrypted_field(record, field_name, original_value)
-    # In test environment, we need to handle encrypted fields differently
-    if Rails.env.test? && record.class.respond_to?(:encrypts) && record.class.encrypted_attributes.include?(field_name.to_s)
-      # For test environment, just verify that the getter returns the expected value
+    # First, verify that the field is configured for encryption
+    if record.class.respond_to?(:encrypts) && record.class.encrypted_attributes.include?(field_name.to_s)
+      # Verify that the getter returns the expected value
       actual_value = record.send(field_name)
       if original_value.is_a?(Date) || original_value.is_a?(Time)
         expect(actual_value.to_s).to include(original_value.to_s)
       else
         expect(actual_value).to eq(original_value)
       end
-    else
-      # For non-test environment or non-encrypted fields, check ciphertext
+      
+      # Also check that the ciphertext exists
       if record.respond_to?("#{field_name}_ciphertext")
         # The ciphertext should not be nil
         expect(record.send("#{field_name}_ciphertext")).not_to be_nil
@@ -62,64 +62,59 @@ module HipaaComplianceHelper
   
   # Verify that an audit log was created for an action
   def expect_audit_log_for(action, admin = nil, auditable = nil)
-    # In test environment, we're more flexible with audit log verification
-    if Rails.env.test?
-      # For tests, just verify that logs are being created
-      if action.is_a?(Regexp)
-        logs = AuditLog.where("action ~* ?", action.source)
-      else
-        # For patient creation, check for either controller or model actions
-        if action == 'patient.create'
-          logs = AuditLog.where("action = ? OR action = ?", action, 'patients#create')
-        else
-          logs = AuditLog.where(action: action)
-        end
-      end
-      
-      # Just verify that some logs exist
-      expect(logs.count).to be > 0, "Expected to find audit logs with action '#{action}' but none were found"
-      
-      # Return the most recent log for further assertions if needed
-      logs.last
+    # Query for audit logs based on the action type
+    if action.is_a?(Regexp)
+      logs = AuditLog.where("action ~* ?", action.source)
     else
-      # For non-test environments, be more strict
-      log = if action.is_a?(Regexp)
-              AuditLog.where("action ~* ?", action.source).last
-            else
-              AuditLog.where(action: action).last
-            end
-      
-      # Verify the log exists
-      expect(log).to be_present, "Expected to find audit log with action '#{action}' but none was found"
-      
-      # Verify admin and auditable if provided
-      expect(log.admin).to eq(admin) if admin
-      expect(log.auditable).to eq(auditable) if auditable
-      
-      # Return the log for further assertions
-      log
+      # For patient creation, check for either controller or model actions
+      if action == 'patient.create'
+        logs = AuditLog.where("action = ? OR action = ?", action, 'patients#create')
+      else
+        logs = AuditLog.where(action: action)
+      end
     end
+    
+    # Add admin filter if provided
+    logs = logs.where(admin: admin) if admin.present?
+    
+    # Add auditable filter if provided
+    if auditable.present?
+      logs = logs.where(auditable_type: auditable.class.name, auditable_id: auditable.id)
+    end
+    
+    # Verify that logs exist
+    expect(logs.count).to be > 0, "Expected to find audit logs with action '#{action}' but none were found"
+    
+    # Get the most recent log for verification
+    log = logs.last
+    
+    # Verify admin and auditable if provided
+    expect(log.admin).to eq(admin) if admin
+    expect(log.auditable).to eq(auditable) if auditable
+    
+    # Return the log for further assertions
+    log
   end
   
   # Create a test patient with encrypted fields
   def create_test_patient_with_encrypted_data
-    # In test environment, we need a unique email for each test
+    # Generate a unique email and MRN for each test
     unique_email = "hipaa_test_#{Time.now.to_i}#{rand(1000)}@example.com"
+    unique_mrn = "MRN-TEST-#{Time.now.to_i}#{rand(1000)}"
     
     # Create the patient with test data
     patient = create(:patient, 
                     first_name: 'HIPAA', 
                     last_name: 'Test', 
                     email: unique_email,
-                    medical_record_number: "MRN-TEST-#{Time.now.to_i}#{rand(1000)}",
+                    medical_record_number: unique_mrn,
                     date_of_birth: '1990-01-01')
     
-    # In test environment, we don't need to verify encryption details
-    # Just verify that the values are accessible
-    expect(patient.first_name).to eq('HIPAA')
-    expect(patient.last_name).to eq('Test')
-    expect(patient.medical_record_number).to include('MRN-TEST-')
-    expect(patient.date_of_birth.to_s).to include('1990-01-01')
+    # Verify that the encrypted fields are properly set
+    expect_encrypted_field(patient, :first_name, 'HIPAA')
+    expect_encrypted_field(patient, :last_name, 'Test')
+    expect_encrypted_field(patient, :medical_record_number, unique_mrn)
+    expect_encrypted_field(patient, :date_of_birth, Date.parse('1990-01-01'))
     
     patient
   end

@@ -21,17 +21,6 @@ module Api
         
         # GET /api/v1/admin/audit_logs
         def index
-          # Special handling for test environment
-          if Rails.env.test?
-            # In test environment, we need to ensure we're returning all audit logs
-            # Create some test audit logs if none exist
-            if AuditLog.count == 0
-              5.times do |i|
-                AuditLog.create!(action: "test.action.#{i}", admin: current_admin, ip_address: '127.0.0.1')
-              end
-            end
-          end
-          
           @audit_logs = AuditLog.all.order(created_at: :desc)
           
           # Apply filters if provided
@@ -42,12 +31,6 @@ module Api
             start_date = Date.parse(params[:start_date]).beginning_of_day
             end_date = Date.parse(params[:end_date]).end_of_day
             @audit_logs = @audit_logs.by_date_range(start_date, end_date)
-          end
-          
-          # For test environment, log what we're returning
-          if Rails.env.test?
-            Rails.logger.debug "Found #{@audit_logs.count} audit logs before pagination"
-            Rails.logger.debug "Filters: admin_id=#{params[:admin_id]}, action_name=#{params[:action_name]}"
           end
           
           # Paginate results
@@ -70,26 +53,6 @@ module Api
           # Check authorization first and return early if not authorized
           unless current_admin&.super_admin?
             render json: { error: 'You are not authorized to access audit logs' }, status: :forbidden
-            return
-          end
-          
-          # Special handling for test environment
-          if Rails.env.test?
-            # In test environment, we need to ensure we're returning all audit logs
-            # Create some test audit logs if none exist
-            if AuditLog.count == 0
-              3.times do |i|
-                AuditLog.create!(action: "test.action.#{i}", admin: current_admin, ip_address: '127.0.0.1')
-              end
-            end
-            
-            # For test environment, just return a simple CSV with proper headers
-            csv_data = "ID,Admin,Action,IP Address,Created At\n1,test@example.com,test.action,127.0.0.1,#{Time.current}"
-            
-            # Include Content-Disposition header for test environment
-            send_data csv_data, 
-                      type: 'text/csv; charset=utf-8; header=present', 
-                      disposition: "attachment; filename=audit_logs_test.csv"
             return
           end
           

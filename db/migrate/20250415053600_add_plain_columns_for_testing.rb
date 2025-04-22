@@ -12,12 +12,12 @@ class AddPlainColumnsForTesting < ActiveRecord::Migration[7.1]
     
     # Make sure the column exists before creating the index
     # We need to do this in a separate transaction
-    if Rails.env.test?
+    if ENV['SKIP_DB_INDEXES'] != 'true'
       execute "ALTER TABLE patients ALTER COLUMN medical_record_number SET NOT NULL"
     end
     
-    # Add index on medical_record_number (only if not in test environment)
-    unless Rails.env.test?
+    # Add index on medical_record_number (only if not skipping indexes)
+    unless ENV['SKIP_DB_INDEXES'] == 'true'
       add_index :patients, :medical_record_number, unique: true, algorithm: :concurrently
     end
   end

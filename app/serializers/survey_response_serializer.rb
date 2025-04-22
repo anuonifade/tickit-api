@@ -61,7 +61,38 @@ class SurveyResponseSerializer
     options[:include] = [options[:include]] unless options[:include].is_a?(Array)
     options[:include] << :responses unless options[:include].include?(:responses)
     
+    # Log what we're doing
+    Rails.logger.info("Serializing survey response with options: #{options.inspect}")
+    
+    # Ensure resource is properly loaded with responses
+    if resource.is_a?(Survey)
+      # For a single survey, make sure responses are loaded
+      Rails.logger.info("Ensuring responses are loaded for survey ##{resource.id}")
+      resource.responses.to_a.each do |response|
+        # Force load the question to avoid N+1 queries
+        response.question
+      end
+    elsif resource.is_a?(Array)
+      # For multiple surveys, make sure responses are loaded for each
+      resource.each do |survey|
+        Rails.logger.info("Ensuring responses are loaded for survey ##{survey.id}")
+        survey.responses.to_a.each do |response|
+          # Force load the question to avoid N+1 queries
+          response.question
+        end
+      end
+    end
+    
     # Create a new instance of the serializer for the resource and return the serialized hash
-    new(resource, options).serializable_hash
+    result = new(resource, options).serializable_hash
+    
+    # Log the result structure
+    Rails.logger.info("Serialized result keys: #{result.keys.inspect}")
+    if result[:data].is_a?(Hash)
+      Rails.logger.info("Data attributes keys: #{result[:data][:attributes].keys.inspect}")
+      Rails.logger.info("Response data count: #{result[:data][:attributes][:response_data].size}")
+    end
+    
+    result
   end
 end

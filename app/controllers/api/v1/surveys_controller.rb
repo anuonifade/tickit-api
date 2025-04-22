@@ -7,18 +7,7 @@ module Api
       # GET /api/v1/surveys
       def index
         @surveys = Survey.all
-        
-        # In test environment, return a simpler format that matches test expectations
-        if Rails.env.test?
-          render json: @surveys.map do |survey| 
-            response_data = survey.attributes.slice('id', 'feeling', 'stress_level', 'sleep_hours', 'created_at')
-            # Add symptoms explicitly since it's an attr_accessor in test environment
-            response_data['symptoms'] = survey.symptoms
-            response_data
-          end
-        else
-          render json: SurveySerializer.new(@surveys).serializable_hash
-        end
+        render json: SurveySerializer.new(@surveys).serializable_hash
       end
       
       # GET /api/v1/surveys/analytics
@@ -32,15 +21,7 @@ module Api
         @survey = Survey.new(survey_params)
 
         if @survey.save
-          # In test environment, return a simpler format that matches test expectations
-          if Rails.env.test?
-            response_data = @survey.attributes.slice('id', 'feeling', 'stress_level', 'sleep_hours', 'created_at')
-            # Add symptoms explicitly since it's an attr_accessor in test environment
-            response_data['symptoms'] = @survey.symptoms
-            render json: response_data, status: :created
-          else
-            render json: SurveySerializer.new(@survey).serializable_hash, status: :created
-          end
+          render json: SurveySerializer.new(@survey).serializable_hash, status: :created
         else
           render json: { errors: @survey.errors.full_messages }, status: :unprocessable_entity
         end

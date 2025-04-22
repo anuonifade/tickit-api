@@ -81,8 +81,8 @@ module Api
         end
         
         def log_dashboard_action
-          # Allow logging in test environment via thread variable
-          return unless admin_signed_in? || (Rails.env.test? && Thread.current[:enable_audit_logs])
+          # Only log actions when an admin is signed in
+          return unless admin_signed_in?
           
           # Extract the relevant information for the audit log
           # Use the expected action format for tests

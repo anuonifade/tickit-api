@@ -89,6 +89,8 @@ module Api
         # GET /api/v1/admin/survey_responses/:id
         def show
           begin
+            Rails.logger.info("Fetching survey response with ID: #{params[:id]}")
+            
             # Force create responses if the survey doesn't have any
             if @survey.responses.empty?
               # Find or create questions - make sure we get at least 3 questions
@@ -123,25 +125,54 @@ module Api
                   Rails.logger.error("Failed to create response for survey ##{@survey.id}, question ##{question.id}: #{e.message}")
                 end
               end
-              
-              # Reload the survey to avoid ambiguous column issues
-              survey_id = @survey.id
-              @survey = Survey.find(survey_id)
-              # Manually load the responses to avoid ambiguous column issues
-              @survey.responses.to_a.each do |response|
-                # Ensure question is loaded
-                response.question
-              end
             end
             
+            # Reload the survey to ensure we have the latest data
+            survey_id = @survey.id
+            @survey = Survey.includes(responses: :question).find(survey_id)
+            
+            # Manually load the responses to avoid ambiguous column issues
+            responses_data = @survey.responses.map do |response|
+              {
+                id: response.id,
+                question_id: response.question_id,
+                question_content: response.question&.content,
+                question_type: response.question&.response_type,
+                text_value: response.text_value,
+                numeric_value: response.numeric_value,
+                formatted_value: format_response_value(response)
+              }
+            end
+            
+            Rails.logger.info("Found #{responses_data.size} responses for survey ##{@survey.id}")
+            
             # Use our custom serializer method that ensures responses are included
-            render json: SurveyResponseSerializer.serializable_hash_with_responses(@survey, 
+            result = SurveyResponseSerializer.serializable_hash_with_responses(@survey, 
               params: { admin: current_admin }
             )
+            
+            # Log the structure of the response
+            Rails.logger.info("Response structure: #{result.keys}")
+            
+            render json: result
           rescue => e
             Rails.logger.error("Error in show action: #{e.message}")
             Rails.logger.error(e.backtrace.join("\n"))
             render json: { error: "An error occurred while processing the survey response", details: e.message }, status: :internal_server_error
+          end
+        end
+        
+        private
+        
+        # Helper method to format response values
+        def format_response_value(response)
+          case response.question&.response_type
+          when 'numeric_scale'
+            response.numeric_value&.to_s
+          when 'text', 'multiple_choice', 'yes_no'
+            response.text_value
+          else
+            nil
           end
         end
         

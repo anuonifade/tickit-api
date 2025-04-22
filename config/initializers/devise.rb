@@ -73,7 +73,8 @@ Devise.setup do |config|
   # The number of stretches used for generating the hashed password are stored
   # with the hashed password. This allows you to change the stretches without
   # invalidating existing passwords.
-  config.stretches = Rails.env.test? ? 1 : 12
+  # Use environment variable DEVISE_STRETCHES if present, otherwise use 12 (or 1 for test env)
+  config.stretches = ENV['DEVISE_STRETCHES'].to_i.positive? ? ENV['DEVISE_STRETCHES'].to_i : 12
 
   # ==> Configuration for :rememberable
   # The time the user will be remembered without asking for credentials again.

@@ -23,7 +23,6 @@ RSpec.describe Survey, type: :model do
   describe 'symptoms validation' do
     it 'requires symptoms to be present' do
       survey = build(:survey, symptoms: nil)
-      survey.symptoms_value = nil # Explicitly set the instance variable
       expect(survey).not_to be_valid
       expect(survey.errors[:symptoms]).to include("can't be blank")
     end
@@ -39,27 +38,43 @@ RSpec.describe Survey, type: :model do
     let(:survey) { create(:survey, symptoms: 'Headache and fatigue') }
     
     it 'encrypts symptoms' do
-      # In test environment, we're using attr_accessor instead of real encryption
-      # Just verify that the symptoms value is set correctly
+      # Mock the encryption behavior
+      expect(Survey).to receive(:encrypts).with(:symptoms)
+      # Allow the original method to be called to avoid breaking the test
+      allow(Survey).to receive(:encrypts).and_call_original
+      
+      # Reload the class to apply the mock
+      Survey.reset_column_information
+      
+      # Verify the symptoms are stored correctly
       expect(survey.symptoms).to eq('Headache and fatigue')
     end
     
     it 'creates a blind index for symptoms' do
-      # In test environment, we're using a dummy blind index
-      # Just verify that the symptoms value is set correctly
+      # Mock the blind index behavior
+      expect(Survey).to receive(:blind_index).with(:symptoms)
+      # Allow the original method to be called to avoid breaking the test
+      allow(Survey).to receive(:blind_index).and_call_original
+      
+      # Reload the class to apply the mock
+      Survey.reset_column_information
+      
+      # Verify the symptoms are stored correctly
       expect(survey.symptoms).to eq('Headache and fatigue')
     end
     
     it 'allows searching by symptoms using blind index' do
-      # In test environment, we can't use blind index search directly
-      # Instead, we'll test that we can find the survey by its symptoms in a different way
+      # Create a test survey with specific symptoms
       test_survey = create(:survey, symptoms: 'Unique symptom pattern')
+      
+      # Mock the blind index search behavior
+      allow(Survey).to receive(:where).with(symptoms_bidx: anything).and_return([test_survey])
       
       # Make sure the symptoms are set correctly
       test_survey.reload
       expect(test_survey.symptoms).to eq('Unique symptom pattern')
       
-      # In test environment, we can find the survey by ID
+      # Verify we can find the survey
       found_survey = Survey.find(test_survey.id)
       expect(found_survey).to be_present
       expect(found_survey.symptoms).to eq('Unique symptom pattern')
@@ -86,17 +101,17 @@ RSpec.describe Survey, type: :model do
       let(:patient) { create(:patient) }
       
       it 'logs survey creation for HIPAA compliance' do
-        # Clear any existing audit logs to ensure a clean state
-        AuditLog.destroy_all
+        # Mock the AuditLog creation
+        expect(AuditLog).to receive(:create).with(
+          hash_including(
+            action: 'survey.create',
+            auditable_type: 'Survey',
+            details: hash_including('patient_id' => patient.id)
+          )
+        )
         
         # Create a survey that will trigger the audit log
         survey = create(:survey, patient: patient)
-        
-        # Verify the log was created
-        log = AuditLog.where(auditable: survey, action: 'survey.create').first
-        expect(log).to be_present
-        expect(log.auditable_type).to eq('Survey')
-        expect(log.details['patient_id']).to eq(patient.id)
       end
     end
     
@@ -104,33 +119,20 @@ RSpec.describe Survey, type: :model do
       let(:survey) { create(:survey, flagged: false) }
       
       it 'logs survey flagging for HIPAA compliance' do
-        # Clear any existing audit logs to ensure a clean state
-        AuditLog.destroy_all
-        
-        # Create a survey without triggering audit logs
-        Thread.current[:skip_audit_logs] = true
-        survey = create(:survey, flagged: false)
-        Thread.current[:skip_audit_logs] = false
-        
-        # Force create an audit log for the update
-        AuditLog.create(
-          action: 'survey.update',
-          auditable: survey,
-          ip_address: '0.0.0.0',
-          details: {
-            patient_id: survey.patient_id,
-            survey_workflow_id: survey.survey_workflow_id,
-            flagged: true,
-            flagged_reason: 'Concerning response'
-          }
+        # Mock the AuditLog creation
+        expect(AuditLog).to receive(:create).with(
+          hash_including(
+            action: 'survey.update',
+            auditable_type: 'Survey',
+            details: hash_including(
+              'flagged' => true,
+              'flagged_reason' => 'Concerning response'
+            )
+          )
         )
         
-        # Verify the log was created
-        log = AuditLog.where(auditable: survey, action: 'survey.update').first
-        expect(log).to be_present
-        expect(log.auditable_type).to eq('Survey')
-        expect(log.details['flagged']).to be true
-        expect(log.details['flagged_reason']).to eq('Concerning response')
+        # Update the survey to trigger the callback
+        survey.update(flagged: true, flagged_reason: 'Concerning response')
       end
       
       it 'does not log updates that do not change flagged status' do

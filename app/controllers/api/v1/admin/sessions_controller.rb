@@ -45,12 +45,6 @@ module Api
         end
         
         def authenticate_admin
-          # In test environment, allow authentication via thread-local variable
-          if Rails.env.test? && Thread.current[:current_admin].present?
-            @current_admin = Thread.current[:current_admin]
-            return
-          end
-          
           header = request.headers['Authorization']
           token = header.split(' ').last if header
           
@@ -65,14 +59,6 @@ module Api
         # Helper method to log actions for HIPAA compliance
         def log_action(admin, action, ip_address)
           return unless admin.present?
-          
-          # For test environment, ensure logging is enabled
-          if Rails.env.test?
-            return unless ENV['ENABLE_TEST_AUDIT_LOGS'] == 'true' || Thread.current[:enable_audit_logs]
-            
-            # Set the admin in thread-local variable for the audit log
-            Thread.current[:current_admin] = admin if Thread.current[:current_admin].nil?
-          end
           
           # Create the audit log
           AuditLog.create(

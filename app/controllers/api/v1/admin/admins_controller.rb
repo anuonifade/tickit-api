@@ -71,12 +71,8 @@ module Api
             return
           end
           
-          # For test environment, simplify the response format
-          if Rails.env.test?
-            render json: { admin: { email: current_admin.email, id: current_admin.id, name: current_admin.full_name } }
-          else
-            render json: AdminSerializer.new(current_admin).serializable_hash
-          end
+          # Use consistent serialization format
+          render json: AdminSerializer.new(current_admin).serializable_hash
         end
         
         # PATCH /api/v1/admin/update_profile

@@ -17,8 +17,8 @@ module Api
         
         # Log admin actions for HIPAA compliance audit trail
         def log_admin_action
-          # Skip logging if not signed in, but allow test environment with thread variable
-          return unless admin_signed_in? || Thread.current[:enable_audit_logs]
+          # Skip logging if not signed in and audit logging is not enabled
+          return unless admin_signed_in? || AuditService.audit_logging_enabled?
           
           # Extract the relevant information for the audit log
           action = "#{controller_name}##{action_name}"
@@ -29,9 +29,8 @@ module Api
             referer: request.referer
           }
           
-          # Create the audit log entry
-          admin = current_admin || Thread.current[:current_admin]
-          AuditLog.log(admin, action, nil, ip_address, details)
+          # Create the audit log entry using the AuditService
+          AuditService.log_event(current_admin, action, nil, ip_address, details)
         end
         
         # Filter sensitive parameters for the audit log

@@ -45,9 +45,6 @@ module Api
         def create
           @patient = Patient.new(patient_params)
           
-          # Enable audit logging for tests if needed
-          Thread.current[:enable_audit_logs] = true if Rails.env.test?
-          
           if @patient.save
             render json: { patient: patient_json(@patient) }, status: :created
           else
