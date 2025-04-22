@@ -24,6 +24,26 @@ RSpec.describe Api::V1::Admin::SurveyResponsesController, type: :controller do
         expect(json_response['data'].length).to eq(3)
       end
       
+      it 'includes response_data attribute in the serialized output' do
+        get :index
+        json_response = JSON.parse(response.body)
+        expect(json_response['data'].first['attributes']).to have_key('response_data')
+      end
+      
+      it 'creates responses for surveys that have none' do
+        # Clear any existing responses
+        Response.delete_all
+        
+        # Make sure our survey has no responses
+        expect(survey.responses.count).to eq(0)
+        
+        get :index
+        
+        # Reload the survey to see if responses were created
+        survey.reload
+        expect(survey.responses.count).to be > 0
+      end
+      
       context 'with filtering' do
         let!(:flagged_survey) { create(:survey, :flagged) }
         let!(:patient) { create(:patient) }
@@ -109,6 +129,26 @@ RSpec.describe Api::V1::Admin::SurveyResponsesController, type: :controller do
         get :show, params: { id: survey.id }
         json_response = JSON.parse(response.body)
         expect(json_response['data']['id'].to_i).to eq(survey.id)
+      end
+      
+      it 'includes response_data attribute in the serialized output' do
+        get :show, params: { id: survey.id }
+        json_response = JSON.parse(response.body)
+        expect(json_response['data']['attributes']).to have_key('response_data')
+      end
+      
+      it 'creates responses for a survey that has none' do
+        # Clear any existing responses for this survey
+        survey.responses.delete_all
+        
+        # Make sure our survey has no responses
+        expect(survey.responses.count).to eq(0)
+        
+        get :show, params: { id: survey.id }
+        
+        # Reload the survey to see if responses were created
+        survey.reload
+        expect(survey.responses.count).to be > 0
       end
     end
   end

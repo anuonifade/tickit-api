@@ -77,6 +77,14 @@ RSpec.describe 'Patient Management', type: :request do
     let!(:patient) { create(:patient) }
     
     context 'with valid token' do
+      before do
+        setup_request_authentication(admin)
+      end
+
+      after do
+        cleanup_request_authentication
+      end
+      
       it 'returns the patient' do
         get "/api/v1/admin/patients/#{patient.id}", headers: auth_headers
         
@@ -117,6 +125,14 @@ RSpec.describe 'Patient Management', type: :request do
     end
     
     context 'with valid token and parameters' do
+      before do
+        setup_request_authentication(admin)
+      end
+
+      after do
+        cleanup_request_authentication
+      end
+      
       it 'creates a new patient' do
         expect {
           post '/api/v1/admin/patients', params: valid_params, headers: auth_headers
@@ -141,10 +157,18 @@ RSpec.describe 'Patient Management', type: :request do
       let(:invalid_params) do
         {
           patient: {
-            email: 'invalid-email',
-            medical_record_number: nil
+            first_name: 'John',
+            # Missing required fields
           }
         }
+      end
+      
+      before do
+        setup_request_authentication(admin)
+      end
+
+      after do
+        cleanup_request_authentication
       end
       
       it 'returns unprocessable entity status' do
@@ -152,7 +176,7 @@ RSpec.describe 'Patient Management', type: :request do
         
         expect(response).to have_http_status(:unprocessable_entity)
         json_response = JSON.parse(response.body)
-        expect(json_response).to have_key('errors')
+        expect(json_response['errors']).to be_present
       end
     end
   end
@@ -225,15 +249,24 @@ RSpec.describe 'Patient Management', type: :request do
   end
   
   describe 'GET /api/v1/admin/patients/:id/surveys' do
-    let!(:patient) { create(:patient, :with_surveys) }
+    let!(:patient) { create(:patient) }
+    let!(:surveys) { create_list(:survey, 3, patient: patient) }
     
     context 'with valid token' do
+      before do
+        setup_request_authentication(admin)
+      end
+
+      after do
+        cleanup_request_authentication
+      end
+      
       it 'returns the patient\'s surveys' do
         get "/api/v1/admin/patients/#{patient.id}/surveys", headers: auth_headers
         
         expect(response).to have_http_status(:ok)
         json_response = JSON.parse(response.body)
-        expect(json_response['surveys'].length).to eq(2)
+        expect(json_response['surveys'].length).to eq(3)
       end
       
       it 'logs the action for HIPAA compliance' do
