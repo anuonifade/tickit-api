@@ -3,10 +3,36 @@
 require 'rails_helper'
 
 RSpec.describe ResponseSerializer do
-  let(:numeric_question) { create(:question, content: 'Rate your pain', response_type: 'numeric_scale') }
-  let(:text_question) { create(:question, content: 'Describe your symptoms', response_type: 'text') }
-  let(:yes_no_question) { create(:question, content: 'Are you feeling better?', response_type: 'yes_no') }
-  let(:survey) { create(:survey) }
+  # Use doubles instead of actual database objects
+  let(:numeric_question) do
+    double('Question', 
+      id: 1, 
+      content: 'Rate your pain', 
+      response_type: 'numeric_scale'
+    )
+  end
+  
+  let(:text_question) do
+    double('Question', 
+      id: 2, 
+      content: 'Describe your symptoms', 
+      response_type: 'text'
+    )
+  end
+  
+  let(:yes_no_question) do
+    double('Question', 
+      id: 3, 
+      content: 'Are you feeling better?', 
+      response_type: 'yes_no'
+    )
+  end
+  
+  let(:survey) do
+    double('Survey', 
+      id: 1
+    )
+  end
   
   let(:numeric_response) { create_mock_response(survey: survey, question: numeric_question, numeric_value: 3) }
   let(:text_response) { create_mock_response(survey: survey, question: text_question, text_value: 'Headache and fatigue') }

@@ -15,12 +15,19 @@ module JwtAuthHelper
     allow(controller).to receive(:current_admin).and_return(admin)
     allow(controller).to receive(:admin_signed_in?).and_return(true)
     
-    # Enable audit logging for this test
-    Thread.current[:enable_audit_logs] = true
+    # Set environment variables for this test
+    ENV['ENABLE_AUDIT_LOGS'] = 'true'
+    ENV['LOCKBOX_MASTER_KEY'] = '0000000000000000000000000000000000000000000000000000000000000000'
+    ENV['BLIND_INDEX_MASTER_KEY'] = '0000000000000000000000000000000000000000000000000000000000000000'
     
-    # Clear audit logs before this test
-    Thread.current[:clear_audit_logs_before_test] = true
-    AuditLog.delete_all
+    # Allow the controller to render responses
+    allow(controller).to receive(:render).and_call_original
+    
+    # Mock database-dependent models
+    mock_models
+    
+    # Mock AuditService
+    mock_audit_service(admin)
   end
   
   # Setup controller for unauthenticated tests
@@ -31,7 +38,45 @@ module JwtAuthHelper
     allow(controller).to receive(:admin_signed_in?).and_return(false)
     
     # Disable audit logging for this test
-    Thread.current[:enable_audit_logs] = false
+    ENV['ENABLE_AUDIT_LOGS'] = nil
+  end
+  
+  private
+  
+  # Mock AuditService to avoid database interactions
+  def mock_audit_service(admin)
+    # Create a fake audit log for testing
+    fake_audit_log = double('AuditLog', 
+      admin: admin,
+      action: 'test.action',
+      ip_address: '127.0.0.1',
+      created_at: Time.now
+    )
+    
+    # Mock AuditService class methods
+    allow(AuditService).to receive(:audit_logging_enabled?).and_return(true)
+    allow(AuditService).to receive(:log_event).and_return(fake_audit_log)
+  end
+  
+  # Mock models to avoid database interactions
+  def mock_models
+    # Mock Survey class
+    allow(Survey).to receive_message_chain(:count).and_return(3)
+    allow(Survey).to receive_message_chain(:group, :count).and_return({})
+    
+    # Mock Patient class
+    allow(Patient).to receive_message_chain(:count).and_return(2)
+    allow(Patient).to receive_message_chain(:group, :count).and_return({})
+    
+    # Mock Question class
+    allow(Question).to receive_message_chain(:count).and_return(5)
+    
+    # Mock SurveyWorkflow class
+    allow(SurveyWorkflow).to receive_message_chain(:count).and_return(1)
+    
+    # Mock AuditLog class
+    allow(AuditLog).to receive_message_chain(:count).and_return(10)
+    allow(AuditLog).to receive_message_chain(:order, :limit).and_return([])
   end
 end
 
